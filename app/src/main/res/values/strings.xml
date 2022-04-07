@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Family Map Client</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="server_IP_address">Server IP Address:</string>
+    <string name="gender">Gender</string>
+    <string name="female">Female</string>
+    <string name="male">Male</string>
+    <string name="login">Login</string>
+    <string name="PortNumber">Port Number:</string>
+    <string name="username">Username:</string>
+    <string name="password">Password:</string>
+    <string name="first_name">First Name:</string>
+    <string name="last_name">Last Name:</string>
+    <string name="email">Email:</string>
+    <string name="register">Register</string>
+</resources>

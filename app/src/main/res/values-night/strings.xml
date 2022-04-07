@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="server_IP_address">Server IP Address:</string>
+    <string name="PortNumber">Port Number:</string>
+</resources>
