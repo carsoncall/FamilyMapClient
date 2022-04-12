@@ -1,5 +1,6 @@
 package com.example.familymapclient;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
@@ -116,15 +117,15 @@ public class LoginFragment extends Fragment {
         });
 
         registerButton.setOnClickListener((v2) -> {
-            Handler registerHandler = new Handler() {
+            @SuppressLint("HandlerLeak") Handler registerHandler = new Handler() {
                 @Override
                 public void handleMessage(Message message) {
                     Bundle bundle = message.getData();
                     Boolean success =  bundle.getBoolean(REGISTER_SUCCESS_KEY, false);
                     if(success) {
-//                        String authToken = bundle.getString(AUTHTOKEN_KEY);
-//                        String personID = bundle.getString(PERSON_ID_KEY);
-//                        startRetrievalTask(authToken,personID);
+                        String authToken = bundle.getString(AUTHTOKEN_KEY);
+                        String personID = bundle.getString(PERSON_ID_KEY);
+                        startRetrievalTask(authToken,personID);
 
                         listener.notifyDone();
                     } else {
@@ -276,7 +277,7 @@ public class LoginFragment extends Fragment {
             RegisterResult result = proxy.register(registerRequest);
             if (result.isSuccess()) {
                 DataCache cache = DataCache.getInstance();
-                cache.store(result);
+                //cache.store(result);
             }
 
             //now we send a message back to the main thread
@@ -325,6 +326,7 @@ public class LoginFragment extends Fragment {
                 cache.store(eventResult);
                 cache.setUser(personResult);
                 cache.store(personsResult);
+                cache.sort();
 
                 sendMessage(true);
             } else {

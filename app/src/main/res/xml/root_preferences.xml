@@ -1,0 +1,41 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory app:title="@string/filters">
+
+        <SwitchPreferenceCompat
+            app:key="life_story_lines"
+            app:title="@string/life_story_lines"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="family_tree_lines"
+            app:title="@string/family_tree_lines"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="spouse_lines"
+            app:title="@string/spouse_lines"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="father_side_events"
+            app:title="@string/father_side_events"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="mother_side_events"
+            app:title="@string/mother_side_events"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="male_events"
+            app:title="@string/male_events"
+            android:defaultValue="true"/>
+        <SwitchPreferenceCompat
+            app:key="female_events"
+            app:title="@string/female_events"
+            android:defaultValue="true"/>
+
+        <Preference
+            android:title="@string/log_out"
+            android:summary="@string/summary_logout"/>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

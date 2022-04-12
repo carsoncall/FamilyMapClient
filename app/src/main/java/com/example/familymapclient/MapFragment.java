@@ -3,12 +3,20 @@ package com.example.familymapclient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceManager;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -24,17 +32,22 @@ import com.joanzapata.iconify.Iconify;
 import com.joanzapata.iconify.fonts.FontAwesomeIcons;
 import com.joanzapata.iconify.fonts.FontAwesomeModule;
 
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import Model.Event;
+import Model.Person;
 
 public class MapFragment extends Fragment {
 
     private DataCache dataCache;
-    private Map<String, Model.Event> events;
+    private Map<String, Event> events;
     private GoogleMap.OnMarkerClickListener listener;
     private ImageView imageView;
     private TextView textView;
+    private GoogleMap map;
+    private SharedPreferences preferences;
 
     private OnMapReadyCallback callback = new OnMapReadyCallback() {
 
@@ -55,29 +68,88 @@ public class MapFragment extends Fragment {
             dataCache = DataCache.getInstance();
 
             events = dataCache.getEvents();
+            map = googleMap;
+            drawMarkers();
 
-            for (String key: events.keySet()) {
-                Model.Event event = events.get(key);
-                LatLng pos = new LatLng(event.getLatitude(), event.getLongitude());
-                Marker marker = googleMap.addMarker(new MarkerOptions().position(pos)
-                    .icon(BitmapDescriptorFactory.defaultMarker(0)));
-                marker.setTag(event);
+            //set default values
+            Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_android)
+                    .colorRes(R.color.black)
+                    .sizeDp(50);
+            imageView.setImageDrawable(drawable);
+            textView.setText(R.string.click_on_an_icon_to_see_details);
 
-            }
+
             listener = new GoogleMap.OnMarkerClickListener() {
                 @Override
                 public boolean onMarkerClick(@NonNull Marker marker) {
-                    Model.Event event = (Event)marker.getTag();
-                    Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_female)
-                            .colorRes(R.color.purple_200).sizeDp(50);
-                    imageView.setImageDrawable(drawable);
-                    textView.setText(event.getEventType());
+                    Event event = (Event)marker.getTag();
+
+                    Person eventPerson = dataCache.getPersonByID(event.getPersonID());
+                    String personName = eventPerson.getFirstName() + " " + eventPerson.getLastName();
+                    StringBuilder text = new StringBuilder(personName).append("\n")
+                            .append(event.getEventType().toUpperCase(Locale.ROOT))
+                            .append(": ").append(event.getCity())
+                            .append(", ").append(event.getCountry())
+                            .append(" (").append(event.getYear()).append(")");
+                    textView.setText(text);
+
+                    if (eventPerson.getGender().equals("f")) {
+                        Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_female)
+                                .colorRes(R.color.purple_200).sizeDp(50);
+                        imageView.setImageDrawable(drawable);
+                    } else {
+                        Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_male)
+                                .colorRes(R.color.teal_700).sizeDp(50);
+                        imageView.setImageDrawable(drawable);
+                    }
                     return false;
                 }
             };
             googleMap.setOnMarkerClickListener(listener);
         }
     };
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+
+    }
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.main_menu, menu);
+
+        MenuItem settingsItem = menu.findItem(R.id.settings_icon);
+        MenuItem searchItem = menu.findItem(R.id.search_icon);
+
+        Drawable gearIcon = new IconDrawable(getActivity(), FontAwesomeIcons.fa_gear)
+                .colorRes(R.color.white)
+                .sizeDp(20);
+        settingsItem.setIcon(gearIcon);
+
+        Drawable searchIcon = new IconDrawable(getActivity(), FontAwesomeIcons.fa_search)
+                .colorRes(R.color.white)
+                .sizeDp(20);
+        searchItem.setIcon(searchIcon);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.settings_icon:
+                Intent i =  new Intent(getActivity(), SettingsActivity.class);
+                startActivity(i);
+                return true;
+            case R.id.search_icon:
+                //TODO: search functionality
+                Intent j = new Intent(getActivity(), SearchActivity.class);
+                startActivity(j);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
 
     @Nullable
     @Override
@@ -103,6 +175,65 @@ public class MapFragment extends Fragment {
             mapFragment.getMapAsync(callback);
         }
     }
+
+    @Override
+    public void onResume() {
+        if (map != null) {
+            map.clear();
+            drawMarkers();
+            Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_android)
+                    .colorRes(R.color.black)
+                    .sizeDp(50);
+            imageView.setImageDrawable(drawable);
+            textView.setText(R.string.click_on_an_icon_to_see_details);
+        }
+        super.onResume();
+    }
+
+    private void drawMarkers() {
+        preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
+        Boolean showMaleEvents = preferences.getBoolean("male_events", true);
+        Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
+        Boolean showPaternalEvents = preferences.getBoolean("father_side_events", true);
+        Boolean showMaternalEvents = preferences.getBoolean("mother_side_events", true);
+
+        Set<Model.Event> setOfDesiredEvents = dataCache.setOfDesiredEvents(showMaleEvents,showFemaleEvents
+                                                            , showPaternalEvents, showMaternalEvents);
+
+        for (Model.Event event : setOfDesiredEvents) {
+            LatLng pos = new LatLng(event.getLatitude(), event.getLongitude());
+            float hue = dataCache.getColor(event.getEventType());
+            Marker marker = map.addMarker(new MarkerOptions().position(pos)
+                    .icon(BitmapDescriptorFactory.defaultMarker(hue)));
+            assert marker != null;
+            marker.setTag(event);
+        }
+    }
+
+    private void drawLines() {
+        preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
+        Boolean showLifeStoryLines = preferences.getBoolean("life_story_lines", true);
+        Boolean showFamilyTreeLines = preferences.getBoolean("family_tree_lines", true);
+        Boolean showSpouseLines = preferences.getBoolean("show_spouse_lines", true);
+
+        /*
+        LatLng startPoint = new LatLng(startEvent.getLatitude(), startEvent.getLongitude());
+        LatLng endPoint = new LatLng(endEvent.getLatitude(), endEvent.getLongitude());
+        PolylineOptions options = new PolylineOptions()
+            .add(startPoint)
+            .add(endPoint)
+            .color(color)
+            .width(width);
+        Polyline line = googleMap.addPolyline(options);
+
+
+function that returns birth or earliest recorded event w tiebreakers
+markerExists
+drawLines
+set of Markers
+         */
+    }
+
 
 
 }
