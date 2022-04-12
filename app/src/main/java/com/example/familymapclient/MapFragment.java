@@ -8,6 +8,7 @@ import androidx.preference.PreferenceManager;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -27,11 +28,15 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.joanzapata.iconify.IconDrawable;
 import com.joanzapata.iconify.Iconify;
 import com.joanzapata.iconify.fonts.FontAwesomeIcons;
 import com.joanzapata.iconify.fonts.FontAwesomeModule;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +53,8 @@ public class MapFragment extends Fragment {
     private TextView textView;
     private GoogleMap map;
     private SharedPreferences preferences;
+    private Set<Marker> markers = new HashSet<>();
+    private Set<Polyline> lines = new HashSet<>();
 
     private OnMapReadyCallback callback = new OnMapReadyCallback() {
 
@@ -84,6 +91,7 @@ public class MapFragment extends Fragment {
                 public boolean onMarkerClick(@NonNull Marker marker) {
                     Event event = (Event)marker.getTag();
 
+                    assert event != null;
                     Person eventPerson = dataCache.getPersonByID(event.getPersonID());
                     String personName = eventPerson.getFirstName() + " " + eventPerson.getLastName();
                     StringBuilder text = new StringBuilder(personName).append("\n")
@@ -92,6 +100,7 @@ public class MapFragment extends Fragment {
                             .append(", ").append(event.getCountry())
                             .append(" (").append(event.getYear()).append(")");
                     textView.setText(text);
+                    drawLines(marker);
 
                     if (eventPerson.getGender().equals("f")) {
                         Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_female)
@@ -108,6 +117,13 @@ public class MapFragment extends Fragment {
             googleMap.setOnMarkerClickListener(listener);
         }
     };
+
+    private void clearLines() {
+        for (Polyline line : lines) {
+            line.remove();
+        }
+        lines.clear();
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -191,6 +207,7 @@ public class MapFragment extends Fragment {
     }
 
     private void drawMarkers() {
+        map.clear();
         preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
         Boolean showMaleEvents = preferences.getBoolean("male_events", true);
         Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
@@ -207,33 +224,140 @@ public class MapFragment extends Fragment {
                     .icon(BitmapDescriptorFactory.defaultMarker(hue)));
             assert marker != null;
             marker.setTag(event);
+            markers.add(marker);
         }
     }
 
-    private void drawLines() {
+//    private void drawLines() {
+//        preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
+//        Boolean showMaleEvents = preferences.getBoolean("male_events", true);
+//        Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
+//        Boolean showPaternalEvents = preferences.getBoolean("father_side_events", true);
+//        Boolean showMaternalEvents = preferences.getBoolean("mother_side_events", true);
+//
+//        Boolean showLifeStoryLines = preferences.getBoolean("life_story_lines", true);
+//        Boolean showFamilyTreeLines = preferences.getBoolean("family_tree_lines", true);
+//        Boolean showSpouseLines = preferences.getBoolean("spouse_lines", true);
+//
+//        Set<Model.Event> filteredEvents = dataCache.setOfFilteredEvents;
+//
+//        if (showMaleEvents && showFemaleEvents && showSpouseLines) {
+//            //draw spouse lines
+//            Set<String> filteredMales = dataCache.setOfDesiredMales(showPaternalEvents, showMaternalEvents);
+//            for (String maleID : filteredMales) {
+//                Person husband = dataCache.getPersonByID(maleID);
+//                if (husband.getSpouseID() != null) {
+//                    Person wife = dataCache.getPersonByID(husband.getSpouseID());
+//
+//                    Event husbandEarliest = dataCache.getEarliestEvent(husband.getPersonID());
+//                    Event wifeEarliest = dataCache.getEarliestEvent(wife.getPersonID());
+//
+//                    LatLng startPoint = new LatLng(husbandEarliest.getLatitude(), husbandEarliest.getLongitude());
+//                    LatLng endPoint = new LatLng(wifeEarliest.getLatitude(), wifeEarliest.getLongitude());
+//
+//                    int width = 5;
+//                    PolylineOptions options = new PolylineOptions()
+//                            .add(startPoint)
+//                            .add(endPoint)
+//                            .color(Color.DKGRAY)
+//                            .width(width);
+//                    Polyline line = map.addPolyline(options);
+//                }
+//            }
+//        }
+//
+//        if (showLifeStoryLines) {
+//            //draw life story lines
+//            Set<String> filteredPersons = dataCache.filteredPersonIDs;
+//
+//            for (String personID : filteredPersons) {
+//                List<Event> personEvents = dataCache.getPersonEventsByID(personID);
+//                LatLng startPoint = null;
+//                LatLng endPoint = null;
+//                for (Model.Event event : personEvents) {
+//                    startPoint = new LatLng(event.getLatitude(),event.getLongitude());
+//                    if (endPoint != null ) {
+//                        PolylineOptions options = new PolylineOptions()
+//                                .add(startPoint)
+//                                .add(endPoint)
+//                                .color(Color.YELLOW)
+//                                .width(5);
+//                        map.addPolyline(options);
+//                    }
+//                    endPoint = startPoint;
+//                }
+//            }
+//
+//        }
+//
+//        if (showFamilyTreeLines) {
+//            //draw family tree lines
+//        }
+//    }
+    private void drawLines(Marker marker) {
         preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
+        Boolean showMaleEvents = preferences.getBoolean("male_events", true);
+        Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
+        Boolean showPaternalEvents = preferences.getBoolean("father_side_events", true);
+        Boolean showMaternalEvents = preferences.getBoolean("mother_side_events", true);
+
         Boolean showLifeStoryLines = preferences.getBoolean("life_story_lines", true);
         Boolean showFamilyTreeLines = preferences.getBoolean("family_tree_lines", true);
-        Boolean showSpouseLines = preferences.getBoolean("show_spouse_lines", true);
+        Boolean showSpouseLines = preferences.getBoolean("spouse_lines", true);
 
-        /*
-        LatLng startPoint = new LatLng(startEvent.getLatitude(), startEvent.getLongitude());
-        LatLng endPoint = new LatLng(endEvent.getLatitude(), endEvent.getLongitude());
-        PolylineOptions options = new PolylineOptions()
-            .add(startPoint)
-            .add(endPoint)
-            .color(color)
-            .width(width);
-        Polyline line = googleMap.addPolyline(options);
+        Model.Event eventOfPerson = (Model.Event) marker.getTag();
+        Person eventPerson = dataCache.getPersonByID(eventOfPerson.getPersonID());
+        LatLng startPoint = marker.getPosition();
 
+        clearLines();
+        if ((!showMaleEvents && !showFemaleEvents)
+                || (!showPaternalEvents && !showMaternalEvents)
+                || (!showFamilyTreeLines && showLifeStoryLines && showSpouseLines)) {
+            return;
+        }
 
-function that returns birth or earliest recorded event w tiebreakers
-markerExists
-drawLines
-set of Markers
-         */
+        if (showMaleEvents && showFemaleEvents && showSpouseLines) {
+            drawSpouseLines(startPoint, eventPerson);
+        }
+        if (showFamilyTreeLines) {
+            drawFamilyTreeLines(startPoint, eventPerson);
+        }
+        if (showLifeStoryLines) {
+            drawLifeStoryLines(eventPerson);
+        }
     }
 
+    private void drawSpouseLines(LatLng startPoint, Person eventPerson) {
+        Model.Event spouseFirstEvent = dataCache.getEarliestEvent(eventPerson.getSpouseID());
+        LatLng endPoint = new LatLng(spouseFirstEvent.getLatitude(), spouseFirstEvent.getLongitude());
+        PolylineOptions options = new PolylineOptions()
+                .add(startPoint)
+                .add(endPoint)
+                .color(Color.DKGRAY)
+                .width(5);
+        lines.add(map.addPolyline(options));
+    }
 
+    private void drawFamilyTreeLines(LatLng startPoint, Person eventPerson) {
+
+    }
+
+    private void drawLifeStoryLines(Person eventPerson) {
+        List<Event> personEvents = dataCache.getPersonEventsByID(eventPerson.getPersonID());
+        LatLng startPoint = null;
+        LatLng endPoint = null;
+        for (Model.Event event : personEvents) {
+            startPoint = new LatLng(event.getLatitude(),event.getLongitude());
+            if (endPoint != null ) {
+                PolylineOptions options = new PolylineOptions()
+                        .add(startPoint)
+                        .add(endPoint)
+                        .color(Color.MAGENTA)
+                        .width(5);
+                lines.add(map.addPolyline(options));
+            }
+            endPoint = startPoint;
+        }
+    }
 
 }

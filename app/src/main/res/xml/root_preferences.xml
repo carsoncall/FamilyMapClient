@@ -34,6 +34,7 @@
 
         <Preference
             android:title="@string/log_out"
+            android:key="@string/log_out_key"
             android:summary="@string/summary_logout"/>
 
     </PreferenceCategory>

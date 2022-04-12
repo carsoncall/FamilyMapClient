@@ -89,7 +89,7 @@ public class LoginFragment extends Fragment {
         checkFieldsForEmptyValues();
 
         loginButton.setOnClickListener((v1) -> {
-            Handler loginHandler = new Handler() {
+            @SuppressLint("HandlerLeak") Handler loginHandler = new Handler() {
                 @Override
                 public void handleMessage(Message message) {
                     Bundle bundle = message.getData();
@@ -100,7 +100,7 @@ public class LoginFragment extends Fragment {
 
                         //Now we will start the thread that will retrieve the user's data
                         startRetrievalTask(authToken, personID);
-
+                        listener.notifyDone();
                         Toast.makeText(getContext(), "Login successful", Toast.LENGTH_LONG).show();
                     } else {
                         Toast.makeText(getContext(), "Login Failure", Toast.LENGTH_LONG).show();
@@ -155,19 +155,12 @@ public class LoginFragment extends Fragment {
     }
 
     private void startRetrievalTask(String authToken, String personID) {
-        Handler retrieveDataHandler = new Handler() {
+        @SuppressLint("HandlerLeak") Handler retrieveDataHandler = new Handler() {
             @Override
             public void handleMessage(Message message){
                 Bundle bundle = message.getData();
                 Boolean success = bundle.getBoolean(DATA_SUCCESS_KEY, false);
                 if (success) {
-//                    DataCache cache = DataCache.getInstance();
-//                    String firstName = cache.user.getFirstName();
-//                    String lastName = cache.user.getLastName();
-//                    String displayText = "First name: " + firstName
-//                            + " Last name: " + lastName;
-//                    Toast.makeText(getContext(),displayText,Toast.LENGTH_LONG).show();
-
                     listener.notifyDone();
                 } else {
                     Toast.makeText(getContext(),"Failed to download data", Toast.LENGTH_LONG).show();
@@ -177,7 +170,7 @@ public class LoginFragment extends Fragment {
         RetrievalTask retrievalTask = new RetrievalTask(retrieveDataHandler
                 , serverAddress.getText().toString(), serverPort.getText().toString()
                 , authToken, personID);
-        //executorService = Executors.newSingleThreadExecutor();
+        executorService = Executors.newSingleThreadExecutor();
         executorService.submit(retrievalTask);
     }
 
@@ -238,6 +231,7 @@ public class LoginFragment extends Fragment {
         public void run() {
             ServerProxy proxy = new ServerProxy(address,port);
             LoginResult result = proxy.login(loginRequest);
+
             if (result.isSuccess()) {
                 DataCache cache = DataCache.getInstance();
                 cache.store(result);

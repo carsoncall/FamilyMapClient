@@ -1,21 +1,23 @@
 package com.example.familymapclient;
 
-import android.media.metrics.Event;
+import android.graphics.ColorSpace;
 import android.provider.Settings;
 import android.util.Pair;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import Model.Event;
 import Model.Person;
 import Result.EventDataResult;
 import Result.LoginResult;
 import Result.PersonResult;
-import Result.RegisterResult;
 
 
 public class DataCache {
@@ -39,6 +41,7 @@ public class DataCache {
     Set<String> maternalAncestors = new HashSet<>();
     Set<String> malePersonIDs = new HashSet<>();
     Set<String> femalePersonIDs = new HashSet<>();
+    Set<String> filteredPersonIDs = new HashSet<>();
     //eventID sets
     Set<String> maleEventIDs = new HashSet<>();
     Set<String> femaleEventIDs = new HashSet<>();
@@ -115,6 +118,21 @@ public class DataCache {
                 maternalEventIDs.add(event.getEventID());
             }
         }
+
+        //populates map of PersonIDs to Lists of Events, already sorted in chronological order and
+        // tiebroken
+
+        for (String key : persons.keySet()) {
+            List<Model.Event> thisPersonEvents = new ArrayList<>();
+            for (Model.Event event: events.values()) {
+                if (event.getPersonID().equals(key)) {
+                    thisPersonEvents.add(event);
+                }
+            }
+
+            thisPersonEvents.sort(new EventComparator());
+            personEvents.put(key, thisPersonEvents);
+        }
     }
 
     private void recurseParents(String personID, Set<String> familySideSet) {
@@ -133,34 +151,60 @@ public class DataCache {
         Set<Model.Event> result = new HashSet<>();
         Set<String> resultEventIDs = new HashSet<>();
 
-        if (showPaternal) { resultEventIDs.addAll(paternalEventIDs); }
-        if (showMaternal) { resultEventIDs.addAll(maternalEventIDs); }
+        if (showPaternal) {
+            resultEventIDs.addAll(paternalEventIDs);
+            filteredPersonIDs.addAll(paternalAncestors);
+        }
+        if (showMaternal) {
+            resultEventIDs.addAll(maternalEventIDs);
+            filteredPersonIDs.addAll(maternalAncestors);
+        }
 
-        if (!showMale) { resultEventIDs.removeAll(maleEventIDs); }
-        if (!showFemale) { resultEventIDs.removeAll(femaleEventIDs); }
+        if (!showMale) {
+            resultEventIDs.removeAll(maleEventIDs);
+            filteredPersonIDs.removeAll(malePersonIDs);
+        }
+        if (!showFemale) {
+            resultEventIDs.removeAll(femaleEventIDs);
+            filteredPersonIDs.removeAll(femalePersonIDs);
+        }
 
         for (String eventID : resultEventIDs) { result.add(events.get(eventID)); }
         setOfFilteredEvents = result;
         return result;
     }
 
+    public Set<String> setOfDesiredMales(Boolean showPaternal, Boolean showMaternal) {
+
+        if (showPaternal && showMaternal) {
+            return malePersonIDs;
+        } else if (!showMaternal) {
+            Set<String> malePaternalPersonIDs = malePersonIDs;
+            malePaternalPersonIDs.removeAll(maternalAncestors);
+            return malePaternalPersonIDs;
+        } else  {
+            Set<String> maleMaternalPersonIDs = malePersonIDs;
+            maleMaternalPersonIDs.removeAll(paternalAncestors);
+            return maleMaternalPersonIDs;
+        }
+    }
+
     public float getColor(String eventType) {
-        // TODO: make function that gives each type of event its own color
         float birth = 0;
         float marriage = 90;
         float death = 270;
 
-        if (eventType.equals("birth")) { return birth; }
-        if (eventType.equals("marriage")) { return marriage; }
-        if (eventType.equals("death")) { return death; }
+        if (eventType.toUpperCase(Locale.ROOT).equals("BIRTH")) { return birth; }
+        if (eventType.toUpperCase(Locale.ROOT).equals("MARRIAGE")) { return marriage; }
+        if (eventType.toUpperCase(Locale.ROOT).equals("DEATH")) { return death; }
 
         if (otherTypesColors.containsKey(eventType) && otherTypesColors.get(eventType) != null) {
             return otherTypesColors.get(eventType);
         } else {
             //counter allows for every arbitrary type to have a color that is reasonably unique
             // and also never too close to the three major types.
-            counter = (counter + 62)%360;
-            otherTypesColors.put(eventType, counter);
+            counter = (counter + 69)%360;
+            otherTypesColors.put(eventType.toUpperCase(Locale.ROOT), counter);
             return counter;
         }
     }
@@ -173,8 +217,7 @@ public class DataCache {
         return events.get(eventID);
     }
 
-    public List<Event> getPersonEventsByID(String personID) {
-        return personEvents.get(personID);
+    public List<Model.Event> getPersonEventsByID(String personID) { return personEvents.get(personID);
     }
 
     public void setAuthToken(String authToken) {
@@ -215,12 +258,31 @@ public class DataCache {
         return new Pair<>(personResults, eventResults);
     }
 
+    public Model.Event getEarliestEvent(String personID){
+        return personEvents.get(personID).get(0);
+    }
 
     public ArrayList<Model.Event> getEventsList() {
         return new ArrayList<>(events.values());
     }
     public ArrayList<Person> getPersonsList() {
         return new ArrayList<>(persons.values());
+    }
+
+    public static class EventComparator implements Comparator<Model.Event> {
+
+        @Override
+        public int compare(Model.Event event1, Model.Event event2) {
+            if (event1.getYear() < event2.getYear()) {
+                return -1;
+            } else if (event1.getYear() > event2.getYear()) {
+                return 1;
+            } else {
+                String event1Type = event1.getEventType().toLowerCase(Locale.ROOT);
+                String event2Type = event2.getEventType().toLowerCase(Locale.ROOT);
+                return Integer.compare(event1Type.compareTo(event2Type), 0);
+            }
+        }
     }
 
 
