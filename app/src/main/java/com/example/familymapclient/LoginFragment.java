@@ -136,7 +136,7 @@ public class LoginFragment extends Fragment {
         //Get gender
         RadioButton radioButton;
         int id = genderGroup.getCheckedRadioButtonId();
-        radioButton = (RadioButton)view.findViewById(id);
+        radioButton = view.findViewById(id);
         String gender = radioButton.getText().toString();
         Character genderChar = gender.charAt(0);
 
@@ -174,7 +174,7 @@ public class LoginFragment extends Fragment {
         executorService.submit(retrievalTask);
     }
 
-    private TextWatcher mTextWatcher = new TextWatcher() {
+    private final TextWatcher mTextWatcher = new TextWatcher() {
         @Override
         public void beforeTextChanged(CharSequence charSequence, int i, int i2, int i3) {
         }

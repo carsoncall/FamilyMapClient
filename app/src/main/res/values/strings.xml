@@ -55,4 +55,10 @@
     <string name="hello_first_fragment">Hello first fragment</string>
     <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
     <string name="log_out_key">log_out_key</string>
+    <string name="events_title">Events</string>
+    <string name="persons_title">Persons</string>
+    <string name="event_view">Event View</string>
+    <string name="person_activity">Person View</string>
+    <string name="search_activity">Search</string>
+    <string name="settings_activity">Settings</string>
 </resources>

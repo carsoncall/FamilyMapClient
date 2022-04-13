@@ -21,11 +21,12 @@
             android:layout_height="wrap_content"/>
         <TextView
             android:id="@+id/bottom_text"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:gravity="center"
             android:text="@string/click_on_an_icon_to_see_details"
-            android:textSize="30sp" />
+            android:textSize="25sp"
+            android:clickable="true"/>
     </LinearLayout>
 
 

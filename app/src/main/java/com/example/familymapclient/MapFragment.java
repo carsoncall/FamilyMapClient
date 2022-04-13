@@ -1,11 +1,5 @@
 package com.example.familymapclient;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.preference.Preference;
-import androidx.preference.PreferenceManager;
-
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -17,10 +11,15 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.preference.PreferenceManager;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -53,10 +52,13 @@ public class MapFragment extends Fragment {
     private TextView textView;
     private GoogleMap map;
     private SharedPreferences preferences;
-    private Set<Marker> markers = new HashSet<>();
-    private Set<Polyline> lines = new HashSet<>();
+    private final Set<Marker> markers = new HashSet<>();
+    private final Set<Polyline> lines = new HashSet<>();
+    Set<Model.Event> setOfDesiredEvents;
 
-    private OnMapReadyCallback callback = new OnMapReadyCallback() {
+    Person eventPerson;
+
+    private final OnMapReadyCallback callback = new OnMapReadyCallback() {
 
         /**
          * Manipulates the map once available.
@@ -69,48 +71,34 @@ public class MapFragment extends Fragment {
          */
         @Override
         public void onMapReady(GoogleMap googleMap) {
-//            LatLng sydney = new LatLng(-34, 151);
-//            googleMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-//            googleMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
             dataCache = DataCache.getInstance();
-
             events = dataCache.getEvents();
             map = googleMap;
             drawMarkers();
 
-            //set default values
-            Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_android)
-                    .colorRes(R.color.black)
-                    .sizeDp(50);
-            imageView.setImageDrawable(drawable);
-            textView.setText(R.string.click_on_an_icon_to_see_details);
-
+            if (getArguments() != null) {
+                String eventID = getArguments().getString("eventID");
+                Event specialEvent = events.get(eventID);
+                LatLng specialEventCoord = new LatLng(specialEvent.getLatitude(), specialEvent.getLongitude());
+                googleMap.moveCamera(CameraUpdateFactory.newLatLng(specialEventCoord));
+                populateBottom(specialEvent);
+                drawLines(specialEvent);
+            } else {
+                //set default values
+                Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_android)
+                        .colorRes(R.color.black)
+                        .sizeDp(50);
+                imageView.setImageDrawable(drawable);
+                textView.setText(R.string.click_on_an_icon_to_see_details);
+            }
 
             listener = new GoogleMap.OnMarkerClickListener() {
                 @Override
                 public boolean onMarkerClick(@NonNull Marker marker) {
                     Event event = (Event)marker.getTag();
+                    populateBottom(event);
+                    drawLines(event);
 
-                    assert event != null;
-                    Person eventPerson = dataCache.getPersonByID(event.getPersonID());
-                    String personName = eventPerson.getFirstName() + " " + eventPerson.getLastName();
-                    StringBuilder text = new StringBuilder(personName).append("\n")
-                            .append(event.getEventType().toUpperCase(Locale.ROOT))
-                            .append(": ").append(event.getCity())
-                            .append(", ").append(event.getCountry())
-                            .append(" (").append(event.getYear()).append(")");
-                    textView.setText(text);
-                    drawLines(marker);
-
-                    if (eventPerson.getGender().equals("f")) {
-                        Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_female)
-                                .colorRes(R.color.purple_200).sizeDp(50);
-                        imageView.setImageDrawable(drawable);
-                    } else {
-                        Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_male)
-                                .colorRes(R.color.teal_700).sizeDp(50);
-                        imageView.setImageDrawable(drawable);
-                    }
                     return false;
                 }
             };
@@ -125,10 +113,34 @@ public class MapFragment extends Fragment {
         lines.clear();
     }
 
+    private void populateBottom(Model.Event event) {
+        assert event != null;
+        eventPerson = dataCache.getPersonByID(event.getPersonID());
+        String personName = eventPerson.getFirstName() + " " + eventPerson.getLastName();
+        StringBuilder text = new StringBuilder(personName).append("\n")
+                .append(event.getEventType().toUpperCase(Locale.ROOT))
+                .append(": ").append(event.getCity())
+                .append(", ").append(event.getCountry())
+                .append(" (").append(event.getYear()).append(")");
+        textView.setText(text);
+
+        if (eventPerson.getGender().equals("f")) {
+            Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_female)
+                    .colorRes(R.color.purple_200).sizeDp(50);
+            imageView.setImageDrawable(drawable);
+        } else {
+            Drawable drawable = new IconDrawable(getActivity(), FontAwesomeIcons.fa_male)
+                    .colorRes(R.color.teal_700).sizeDp(50);
+            imageView.setImageDrawable(drawable);
+        }
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true);
+        if (getArguments() == null) {
+            setHasOptionsMenu(true);
+        }
 
     }
     @Override
@@ -158,7 +170,6 @@ public class MapFragment extends Fragment {
                 startActivity(i);
                 return true;
             case R.id.search_icon:
-                //TODO: search functionality
                 Intent j = new Intent(getActivity(), SearchActivity.class);
                 startActivity(j);
                 return true;
@@ -176,6 +187,15 @@ public class MapFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_map, container, false);
         imageView = view.findViewById(R.id.bottom_icon);
         textView = view.findViewById(R.id.bottom_text);
+
+        textView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent i = new Intent(view.getContext(), PersonActivity.class);
+                i.putExtra(PersonActivity.PERSON_KEY, eventPerson.getPersonID());
+                startActivity(i);
+            }
+        });
 
         Iconify.with(new FontAwesomeModule());
 
@@ -214,7 +234,7 @@ public class MapFragment extends Fragment {
         Boolean showPaternalEvents = preferences.getBoolean("father_side_events", true);
         Boolean showMaternalEvents = preferences.getBoolean("mother_side_events", true);
 
-        Set<Model.Event> setOfDesiredEvents = dataCache.setOfDesiredEvents(showMaleEvents,showFemaleEvents
+        setOfDesiredEvents = dataCache.setOfDesiredEvents(showMaleEvents,showFemaleEvents
                                                             , showPaternalEvents, showMaternalEvents);
 
         for (Model.Event event : setOfDesiredEvents) {
@@ -228,73 +248,7 @@ public class MapFragment extends Fragment {
         }
     }
 
-//    private void drawLines() {
-//        preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
-//        Boolean showMaleEvents = preferences.getBoolean("male_events", true);
-//        Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
-//        Boolean showPaternalEvents = preferences.getBoolean("father_side_events", true);
-//        Boolean showMaternalEvents = preferences.getBoolean("mother_side_events", true);
-//
-//        Boolean showLifeStoryLines = preferences.getBoolean("life_story_lines", true);
-//        Boolean showFamilyTreeLines = preferences.getBoolean("family_tree_lines", true);
-//        Boolean showSpouseLines = preferences.getBoolean("spouse_lines", true);
-//
-//        Set<Model.Event> filteredEvents = dataCache.setOfFilteredEvents;
-//
-//        if (showMaleEvents && showFemaleEvents && showSpouseLines) {
-//            //draw spouse lines
-//            Set<String> filteredMales = dataCache.setOfDesiredMales(showPaternalEvents, showMaternalEvents);
-//            for (String maleID : filteredMales) {
-//                Person husband = dataCache.getPersonByID(maleID);
-//                if (husband.getSpouseID() != null) {
-//                    Person wife = dataCache.getPersonByID(husband.getSpouseID());
-//
-//                    Event husbandEarliest = dataCache.getEarliestEvent(husband.getPersonID());
-//                    Event wifeEarliest = dataCache.getEarliestEvent(wife.getPersonID());
-//
-//                    LatLng startPoint = new LatLng(husbandEarliest.getLatitude(), husbandEarliest.getLongitude());
-//                    LatLng endPoint = new LatLng(wifeEarliest.getLatitude(), wifeEarliest.getLongitude());
-//
-//                    int width = 5;
-//                    PolylineOptions options = new PolylineOptions()
-//                            .add(startPoint)
-//                            .add(endPoint)
-//                            .color(Color.DKGRAY)
-//                            .width(width);
-//                    Polyline line = map.addPolyline(options);
-//                }
-//            }
-//        }
-//
-//        if (showLifeStoryLines) {
-//            //draw life story lines
-//            Set<String> filteredPersons = dataCache.filteredPersonIDs;
-//
-//            for (String personID : filteredPersons) {
-//                List<Event> personEvents = dataCache.getPersonEventsByID(personID);
-//                LatLng startPoint = null;
-//                LatLng endPoint = null;
-//                for (Model.Event event : personEvents) {
-//                    startPoint = new LatLng(event.getLatitude(),event.getLongitude());
-//                    if (endPoint != null ) {
-//                        PolylineOptions options = new PolylineOptions()
-//                                .add(startPoint)
-//                                .add(endPoint)
-//                                .color(Color.YELLOW)
-//                                .width(5);
-//                        map.addPolyline(options);
-//                    }
-//                    endPoint = startPoint;
-//                }
-//            }
-//
-//        }
-//
-//        if (showFamilyTreeLines) {
-//            //draw family tree lines
-//        }
-//    }
-    private void drawLines(Marker marker) {
+    private void drawLines(Event event) {
         preferences = PreferenceManager.getDefaultSharedPreferences(this.getContext());
         Boolean showMaleEvents = preferences.getBoolean("male_events", true);
         Boolean showFemaleEvents = preferences.getBoolean("female_events", true);
@@ -305,22 +259,21 @@ public class MapFragment extends Fragment {
         Boolean showFamilyTreeLines = preferences.getBoolean("family_tree_lines", true);
         Boolean showSpouseLines = preferences.getBoolean("spouse_lines", true);
 
-        Model.Event eventOfPerson = (Model.Event) marker.getTag();
-        Person eventPerson = dataCache.getPersonByID(eventOfPerson.getPersonID());
-        LatLng startPoint = marker.getPosition();
+        assert event != null;
+        Person eventPerson = dataCache.getPersonByID(event.getPersonID());
+        LatLng startPoint = new LatLng(event.getLatitude(), event.getLongitude());
 
         clearLines();
         if ((!showMaleEvents && !showFemaleEvents)
-                || (!showPaternalEvents && !showMaternalEvents)
-                || (!showFamilyTreeLines && showLifeStoryLines && showSpouseLines)) {
+                || (!showFamilyTreeLines && !showLifeStoryLines && !showSpouseLines)) {
             return;
         }
 
-        if (showMaleEvents && showFemaleEvents && showSpouseLines) {
+        if (showMaleEvents && showFemaleEvents && showSpouseLines && eventPerson.getSpouseID() != null) {
             drawSpouseLines(startPoint, eventPerson);
         }
         if (showFamilyTreeLines) {
-            drawFamilyTreeLines(startPoint, eventPerson);
+            drawFamilyTreeLines(startPoint, eventPerson, 10);
         }
         if (showLifeStoryLines) {
             drawLifeStoryLines(eventPerson);
@@ -329,22 +282,52 @@ public class MapFragment extends Fragment {
 
     private void drawSpouseLines(LatLng startPoint, Person eventPerson) {
         Model.Event spouseFirstEvent = dataCache.getEarliestEvent(eventPerson.getSpouseID());
-        LatLng endPoint = new LatLng(spouseFirstEvent.getLatitude(), spouseFirstEvent.getLongitude());
-        PolylineOptions options = new PolylineOptions()
-                .add(startPoint)
-                .add(endPoint)
-                .color(Color.DKGRAY)
-                .width(5);
-        lines.add(map.addPolyline(options));
+        if (setOfDesiredEvents.contains(spouseFirstEvent)) {
+            LatLng endPoint = new LatLng(spouseFirstEvent.getLatitude(), spouseFirstEvent.getLongitude());
+            PolylineOptions options = new PolylineOptions()
+                    .add(startPoint)
+                    .add(endPoint)
+                    .color(Color.DKGRAY)
+                    .width(5);
+            lines.add(map.addPolyline(options));
+        }
     }
 
-    private void drawFamilyTreeLines(LatLng startPoint, Person eventPerson) {
+    private void drawFamilyTreeLines(LatLng startPoint, Person eventPerson, double width) {
+        String fatherID = eventPerson.getFatherID();
+        String motherID = eventPerson.getMotherID();
 
+        if (fatherID != null) {
+            Model.Event fatherEarliest = dataCache.getEarliestEvent(fatherID);
+            if (setOfDesiredEvents.contains(fatherEarliest)) {
+                LatLng fatherEarliestPoint = new LatLng(fatherEarliest.getLatitude(), fatherEarliest.getLongitude());
+                PolylineOptions options = new PolylineOptions()
+                        .add(startPoint)
+                        .add(fatherEarliestPoint)
+                        .color(Color.GREEN)
+                        .width((float) width);
+                lines.add(map.addPolyline(options));
+                drawFamilyTreeLines(fatherEarliestPoint, dataCache.getPersonByID(fatherID), width*.6);
+            }
+        }
+        if (motherID != null) {
+            Model.Event motherEarliest = dataCache.getEarliestEvent(motherID);
+            if (setOfDesiredEvents.contains(motherEarliest)) {
+                LatLng motherEarliestPoint = new LatLng(motherEarliest.getLatitude(), motherEarliest.getLongitude());
+                PolylineOptions options = new PolylineOptions()
+                        .add(startPoint)
+                        .add(motherEarliestPoint)
+                        .color(Color.GREEN)
+                        .width((float) width);
+                lines.add(map.addPolyline(options));
+                drawFamilyTreeLines(motherEarliestPoint, dataCache.getPersonByID(motherID), width*.6);
+            }
+        }
     }
 
     private void drawLifeStoryLines(Person eventPerson) {
         List<Event> personEvents = dataCache.getPersonEventsByID(eventPerson.getPersonID());
-        LatLng startPoint = null;
+        LatLng startPoint;
         LatLng endPoint = null;
         for (Model.Event event : personEvents) {
             startPoint = new LatLng(event.getLatitude(),event.getLongitude());

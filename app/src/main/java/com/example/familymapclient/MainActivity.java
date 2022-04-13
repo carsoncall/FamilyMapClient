@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements LoginFragment.Lis
                     .commit();
         } else {
             if (loginFragment instanceof LoginFragment) {
-                ((LoginFragment) loginFragment).registerListener(this);
+                loginFragment.registerListener(this);
             }
         }
 

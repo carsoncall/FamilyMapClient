@@ -11,6 +11,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 
 import Model.Event;
@@ -24,7 +26,8 @@ public class DataCache {
     //holds all of the data that the app needs, such as authtoken and all of their information
     // including family tree information
 
-    private DataCache(){};
+    private DataCache(){}
+
     private static DataCache instance = new DataCache();
     public static DataCache getInstance() {
         return  instance;
@@ -32,9 +35,9 @@ public class DataCache {
 
     String authToken;
     Model.Person user;
-    Map<String, Person> persons = new HashMap<String, Model.Person>();
-    Map<String, Model.Event> events = new HashMap<String, Model.Event>();
-    Map<String, List<Event>> personEvents = new HashMap<>();
+    Map<String, Person> persons = new HashMap<>();
+    Map<String, Model.Event> events = new HashMap<>();
+    Map<String, List<Model.Event>> personEvents = new HashMap<>();
 
     //personID sets
     Set<String> paternalAncestors = new HashSet<>();
@@ -49,10 +52,8 @@ public class DataCache {
     Set<String> maternalEventIDs = new HashSet<>();
     Set<Model.Event> setOfFilteredEvents;
 
-    Settings settings;
     Map <String, Float> otherTypesColors = new HashMap<>();
-    Float counter = 0.0f;
-
+    Float counter = 90f;
     public void store(LoginResult result) {
         this.authToken = result.getAuthtoken();
     }
@@ -70,7 +71,6 @@ public class DataCache {
             events.put(event.getEventID(),event);
         }
     }
-
     public void setUser(PersonResult personResult) {
         this.user = new Person(personResult.getPersonID(), personResult.getAssociatedUsername()
         , personResult.getFirstName(), personResult.getLastName(), personResult.getGender()
@@ -114,13 +114,13 @@ public class DataCache {
             assert event != null;
             if (paternalAncestors.contains(event.getPersonID())) {
                 paternalEventIDs.add(event.getEventID());
-            } else {
+            } else if (maternalAncestors.contains(event.getPersonID())){
                 maternalEventIDs.add(event.getEventID());
             }
         }
 
         //populates map of PersonIDs to Lists of Events, already sorted in chronological order and
-        // tiebroken
+        //tiebroken
 
         for (String key : persons.keySet()) {
             List<Model.Event> thisPersonEvents = new ArrayList<>();
@@ -160,6 +160,16 @@ public class DataCache {
             filteredPersonIDs.addAll(maternalAncestors);
         }
 
+        for (Event event : getPersonEventsByID(user.getPersonID())) {
+            resultEventIDs.add(event.getEventID());
+        }
+
+        if (user.getSpouseID() != null) {
+            for (Event event : getPersonEventsByID(user.getSpouseID())) {
+                resultEventIDs.add(event.getEventID());
+            }
+        }
+
         if (!showMale) {
             resultEventIDs.removeAll(maleEventIDs);
             filteredPersonIDs.removeAll(malePersonIDs);
@@ -169,41 +179,30 @@ public class DataCache {
             filteredPersonIDs.removeAll(femalePersonIDs);
         }
 
+
+
         for (String eventID : resultEventIDs) { result.add(events.get(eventID)); }
         setOfFilteredEvents = result;
         return result;
     }
 
-    public Set<String> setOfDesiredMales(Boolean showPaternal, Boolean showMaternal) {
-
-        if (showPaternal && showMaternal) {
-            return malePersonIDs;
-        } else if (!showMaternal) {
-            Set<String> malePaternalPersonIDs = malePersonIDs;
-            malePaternalPersonIDs.removeAll(maternalAncestors);
-            return malePaternalPersonIDs;
-        } else  {
-            Set<String> maleMaternalPersonIDs = malePersonIDs;
-            maleMaternalPersonIDs.removeAll(paternalAncestors);
-            return maleMaternalPersonIDs;
-        }
-    }
-
     public float getColor(String eventType) {
         float birth = 0;
-        float marriage = 90;
-        float death = 270;
+        float marriage = 45;
+        float death = 90;
 
         if (eventType.toUpperCase(Locale.ROOT).equals("BIRTH")) { return birth; }
         if (eventType.toUpperCase(Locale.ROOT).equals("MARRIAGE")) { return marriage; }
         if (eventType.toUpperCase(Locale.ROOT).equals("DEATH")) { return death; }
 
-        if (otherTypesColors.containsKey(eventType) && otherTypesColors.get(eventType) != null) {
+        eventType = eventType.toUpperCase(Locale.ROOT);
+        if (otherTypesColors.containsKey(eventType)) {
             return otherTypesColors.get(eventType);
         } else {
-            //counter allows for every arbitrary type to have a color that is reasonably unique
-            // and also never too close to the three major types.
-            counter = (counter + 69)%360;
+            counter += 30f;
+            if (counter > 359) {
+                counter = counter%359;
+            }
             otherTypesColors.put(eventType.toUpperCase(Locale.ROOT), counter);
             return counter;
         }
@@ -232,23 +231,24 @@ public class DataCache {
     }
 
     public Pair<List<Person>, List<Model.Event>> searchData(String s) {
+        s = s.toLowerCase(Locale.ROOT);
         List<Person> personResults = new ArrayList<>();
         List<Model.Event> eventResults = new ArrayList<>();
 
         for (Person person : persons.values()) {
-            String firstName = person.getFirstName();
-            String lastName = person.getLastName();
+            String firstName = person.getFirstName().toLowerCase(Locale.ROOT);
+            String lastName = person.getLastName().toLowerCase(Locale.ROOT);
 
             if (firstName.contains(s) || lastName.contains(s)) {
                 personResults.add(person);
             }
         }
-
+        assert setOfFilteredEvents != null;
         for (Model.Event event : setOfFilteredEvents) {
-            String country = event.getCountry();
-            String city = event.getCity();
-            String type = event.getEventType();
-            String year = String.valueOf(event.getYear());
+            String country = event.getCountry().toLowerCase(Locale.ROOT);
+            String city = event.getCity().toLowerCase(Locale.ROOT);
+            String type = event.getEventType().toLowerCase(Locale.ROOT);
+            String year = String.valueOf(event.getYear()).toLowerCase(Locale.ROOT);
 
             if (country.contains(s) || city.contains(s) || type.contains(s) || year.contains(s)) {
                 eventResults.add(event);
@@ -262,11 +262,43 @@ public class DataCache {
         return personEvents.get(personID).get(0);
     }
 
+    public Map<Person, String> getFamily(String personID) {
+        Map<Person, String> familyRelations = new HashMap<>();
+        Person person = persons.get(personID);
+        for (Person personIterator : persons.values()) {
+            String father = personIterator.getFatherID();
+            String mother = personIterator.getMotherID();
+           if (father != null && mother != null) {
+               if (father.equals(personID) || mother.equals(personID))
+                familyRelations.put(personIterator, "Child");
+            }
+        }
+
+        assert person != null;
+        Person spouse = persons.get(person.getSpouseID());
+        if (spouse != null) {
+             familyRelations.put(spouse, "Spouse");
+        }
+        Person father = persons.get(person.getFatherID());
+        if (father!= null) {
+            familyRelations.put(father, "Father");
+        }
+        Person mother = persons.get(person.getMotherID());
+        if (mother != null) {
+            familyRelations.put(mother, "Mother");
+        }
+
+        return familyRelations;
+    }
+
     public ArrayList<Model.Event> getEventsList() {
         return new ArrayList<>(events.values());
     }
     public ArrayList<Person> getPersonsList() {
         return new ArrayList<>(persons.values());
+    }
+    public static void clear() {
+        instance = new DataCache();
     }
 
     public static class EventComparator implements Comparator<Model.Event> {

@@ -5,6 +5,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.util.Pair;
@@ -31,7 +32,7 @@ import Model.Person;
 public class SearchActivity extends AppCompatActivity {
 
     private static final int EVENT_VIEW_TYPE = 0;
-    private static final int PERSON_VIEW_TYPE = 0;
+    private static final int PERSON_VIEW_TYPE = 1;
 
     SearchView searchView;
     DataCache dataCache;
@@ -62,6 +63,11 @@ public class SearchActivity extends AppCompatActivity {
            }
        };
 
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+
        searchView.setOnQueryTextListener(listener);
 
     }
@@ -79,7 +85,6 @@ public class SearchActivity extends AppCompatActivity {
     private class SearchAdapter extends RecyclerView.Adapter<SearchViewHolder>{
         List<Model.Event> events;
         List<Person> persons;
-
 
         SearchAdapter(List<Person> persons, List<Model.Event> events) {
             this.events = events;
@@ -112,7 +117,9 @@ public class SearchActivity extends AppCompatActivity {
         public int getItemCount() {
             return (events.size() + persons.size());
         }
+
     }
+
 
     private class SearchViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private final ImageView imageView;
@@ -122,7 +129,7 @@ public class SearchActivity extends AppCompatActivity {
         private final int viewType;
         private Model.Event event;
         private Person person;
-        private DataCache dataCache;
+        private final DataCache dataCache;
 
         public SearchViewHolder(@NonNull View itemView, int viewType) {
             super(itemView);
@@ -131,18 +138,13 @@ public class SearchActivity extends AppCompatActivity {
 
             itemView.setOnClickListener(this);
 
-//            if(viewType == PERSON_VIEW_TYPE) {
-//                firstLine = itemView.findViewById(R.id.first_line);
-//                secondLine = null;
-//            } else {
             imageView = itemView.findViewById(R.id.search_item_icon);
             firstLine = itemView.findViewById(R.id.first_line);
             secondLine = itemView.findViewById(R.id.second_line);
-            //}
         }
 
         private void bind(Model.Event event) {
-
+            this.event = event;
             Drawable drawable = new IconDrawable(this.imageView.getContext(), FontAwesomeIcons.fa_map_marker)
                     .colorRes(R.color.black)
                     .sizeDp(32);
@@ -180,11 +182,15 @@ public class SearchActivity extends AppCompatActivity {
 
         @Override
         public void onClick(View view) {
+            Intent i;
             if (viewType == PERSON_VIEW_TYPE) {
-                //TODO: pull up person activity
+                i = new Intent(view.getContext(), PersonActivity.class);
+                i.putExtra(PersonActivity.PERSON_KEY, person.getPersonID());
             } else {
-                //TODO: pull up event activity
+                i = new Intent(view.getContext(), EventActivity.class);
+                i.putExtra(EventActivity.EVENT_KEY, event.getEventID());
             }
+            startActivity(i);
         }
     }
 
