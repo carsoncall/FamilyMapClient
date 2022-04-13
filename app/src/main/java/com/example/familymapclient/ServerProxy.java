@@ -33,7 +33,7 @@ public class ServerProxy {
             HttpURLConnection http = (HttpURLConnection)url.openConnection();
 
             http.setRequestMethod("POST");
-            http.setDoInput(true);
+            http.setDoOutput(true);
             http.addRequestProperty("username", loginRequest.getUsername());
             http.addRequestProperty("Accept", "application/json");
             http.connect();
